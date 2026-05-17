@@ -23,17 +23,14 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Збірка APK (Capacitor v5 з плагіном Геолокації)
+      - name: Збірка APK через Capacitor v5
         run: |
           npm init -y
-          # Встановлюємо стабільну 5-ту версію ядра
           npm install @capacitor/core@5 @capacitor/android@5
           npm install -D @capacitor/cli@5 @capacitor/assets@3
-          
-          # ВСТАНОВЛЮЄМО НА ТИВНИЙ ПЛАГІН ДЛЯ ОПИТУ ВИШОК ТА GPS
           npm install @capacitor/geolocation@5
           
-          # Ініціалізація проєкту
+          # Ініціалізація
           npx cap init "SOS" "ua.civil.sosdebris" --web-dir www
           npx cap add android
           
@@ -44,12 +41,16 @@ jobs:
             npx capacitor-assets generate --android
           fi
           
-          # Прописуємо в AndroidManifest жорсткі дозволи на грубу (вишки) та точну (GPS) локацію
+          # КРИТИЧНИЙ ФІКС: Прописуємо дозволи на грубу та точну геолокацію
           sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-feature android:name="android.hardware.camera" />\n    <uses-feature android:name="android.hardware.camera.flash" />' android/app/src/main/AndroidManifest.xml
           
+          # КРИТИЧНИЙ ФІКС ДЛЯ ПЛАГІНУ: Примусово реєструємо Geolocation у нативному Java-коді Android
+          sed -i '/public class MainActivity extends BridgeActivity {}/d' android/app/src/main/java/ua/civil/sosdebris/MainActivity.java
+          echo -e "package ua.civil.sosdebris;\n\nimport android.os.Bundle;\nimport com.getcapacitor.BridgeActivity;\nimport com.binoculars.geolocation.GeolocationPlugin;\n\npublic class MainActivity extends BridgeActivity {\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        registerPlugin(com.binoculars.geolocation.GeolocationPlugin.class);\n        super.onCreate(savedInstanceState);\n    }\n}" > android/app/src/main/java/ua/civil/sosdebris/MainActivity.java
+
           npx cap sync android
           
-          # Компіляція програми
+          # Компіляція
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug

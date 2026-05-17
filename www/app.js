@@ -34,8 +34,10 @@ window.onload = () => {
     if (navigator.getBattery) {
         navigator.getBattery().then(batt => {
             batteryLevel = Math.round(batt.level * 100);
+            document.getElementById('batt-val').innerText = batteryLevel;
             batt.addEventListener('levelchange', () => {
                 batteryLevel = Math.round(batt.level * 100);
+                document.getElementById('batt-val').innerText = batteryLevel;
             });
         });
     }
@@ -79,59 +81,40 @@ function saveSettings() {
 function loadSettings() {
     document.getElementById('out-blood').innerText = localStorage.getItem('sos_blood');
     document.getElementById('out-allergy').innerText = localStorage.getItem('sos_allergy');
-    
     let p1 = localStorage.getItem('sos_phone1');
     let p2 = localStorage.getItem('sos_phone2');
     document.getElementById('out-phone').innerText = `${p1} / ${p2}`;
 }
 
-// КРИТИЧНИЙ ФІКС: Примусове відкриття нативного "мосту" дозволів Android
+// ПРИМУСОВИЙ НА ТИВНИЙ ЗАПУСК КОРДИНАТ (ЯК У КОМПАСІ)
 async function initSystemData() {
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation) {
         const Geolocation = window.Capacitor.Plugins.Geolocation;
-        
         try {
-            // Обов'язковий крок: штовхаємо Android показати системне вікно дозволу
-            let permResult = await Geolocation.requestPermissions();
-            console.log("Статус дозволів системи:", permResult);
+            // Android викине офіційне вікно запиту геоданих
+            await Geolocation.requestPermissions();
             
-            // Запитуємо позицію (телефон автоматично опитає і вишки, і супутники)
-            let position = await Geolocation.getCurrentPosition({
-                enableHighAccuracy: true,
-                timeout: 7000,
-                maximumAge: 0
-            });
+            // Запитуємо позицію (ядро Android опитає вежі та супутники разом)
+            let position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 6000 });
             updateCoords(position.coords.latitude, position.coords.longitude);
         } catch (e) {
-            document.getElementById('gps-display').innerText = "⚠️ ПОШУК СУПУТНИКІВ GPS...";
+            document.getElementById('gps-display').innerText = "🛰️ ПОШУК СУПУТНИКІВ GPS...";
         }
 
-        // Постійне оновлення координат у реальному часі
         try {
-            await Geolocation.watchPosition({
-                enableHighAccuracy: true,
-                timeout: 10000
-            }, (position, err) => {
+            await Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 10000 }, (position, err) => {
                 if (position && position.coords) {
                     updateCoords(position.coords.latitude, position.coords.longitude);
                 }
             });
         } catch(err) {}
-    } else {
-        // Запасний варіант для ПК-браузера
-        if ('geolocation' in navigator) {
-            navigator.geolocation.watchPosition(pos => {
-                updateCoords(pos.coords.latitude, pos.coords.longitude);
-            }, () => {}, { enableHighAccuracy: true });
-        }
     }
-    initCameraTrackOnly();
 }
 
 function updateCoords(lat, lon) {
     currentLat = parseFloat(lat).toFixed(5);
     currentLon = parseFloat(lon).toFixed(5);
-    document.getElementById('gps-display').innerText = `LAT: ${currentLat} | LON: ${currentLon}`;
+    document.getElementById('gps-display').innerText = `🛰️ LAT: ${currentLat} | LON: ${currentLon}`;
 }
 
 async function initCameraTrackOnly() {
@@ -140,9 +123,7 @@ async function initCameraTrackOnly() {
             videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             videoTrack = videoStream.getVideoTracks()[0];
         }
-    } catch (e) {
-        console.log("Доступ до модуля спалаху заблоковано:", e);
-    }
+    } catch (e) {}
 }
 
 async function toggleHardwareTorch(state) {
@@ -174,7 +155,6 @@ function startSirenSound() {
     if (isSirenPlaying) return;
     isSirenPlaying = true;
     gain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
-    
     let frequencyToggle = true;
     sirenInterval = setInterval(() => {
         osc.frequency.setTargetAtTime(frequencyToggle ? 3800 : 1800, audioCtx.currentTime, 0.08);
@@ -194,32 +174,27 @@ function stopSirenSound() {
 function sendEmergencySMS(isMedical = false) {
     let p1 = localStorage.getItem('sos_phone1');
     let p2 = localStorage.getItem('sos_phone2');
-    
     let targetPool = [];
     if (p1 && p1 !== "НЕ ВКАЗАНО") targetPool.push(p1);
     if (p2 && p2 !== "НЕ ВКАЗАНО") targetPool.push(p2);
     if (targetPool.length === 0) return;
-    
     let destinationNumbers = targetPool.join(',');
     
     setTimeout(() => {
         let now = new Date();
         let timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
-        
         let mapLink = "⚠️_СИГНАЛ_GPS_ЗАБЛОКОВАНО_БЕТОНОМ";
         if (currentLat !== "НЕВІДОМО" && currentLat !== "00.000") {
             mapLink = `http://googleusercontent.com/maps.google.com/maps?q=${currentLat},${currentLon}`;
         }
-        
         let messageText = "";
         if (!isMedical) {
             messageText = `🆘 Я ПІД ЗАВАЛАМИ! Час:${timeStr} Батарея:${batteryLevel}% Карта:${mapLink}`;
         } else {
             messageText = `🩺 МЕД-СТАТУС! Пульс:${measuredBPM} уд/хв. Дихання:${breathStatus}. Батарея:${batteryLevel}% Карта:${mapLink}`;
         }
-        
         window.location.href = `sms:${destinationNumbers}?body=${encodeURIComponent(messageText)}`;
-    }, 2500); 
+    }, 1500); 
 }
 
 async function lockScreenWake() {
@@ -235,30 +210,24 @@ async function triggerActiveSOS() {
     if(isEcoMode) stopEcoBeaconMode();
     await initAudioEngine();
     await lockScreenWake();
-    
     let mainZone = document.getElementById('active-sos-zone');
     let timerBadge = document.getElementById('timer-countdown');
-    
     if (mainZone.classList.contains('strobe-active')) {
         clearInterval(activeSosCountdownInterval);
         clearTimeout(activeSosTimer);
         stopSirenSound();
     }
-    
     mainZone.classList.add('strobe-active');
     timerBadge.style.display = 'block';
     activeSosTimeLeft = 300; 
-    
     startSirenSound();
     sendEmergencySMS(false); 
-    
     activeSosCountdownInterval = setInterval(() => {
         activeSosTimeLeft--;
         let mins = Math.floor(activeSosTimeLeft / 60);
         let secs = activeSosTimeLeft % 60;
         timerBadge.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     }, 1000);
-    
     activeSosTimer = setTimeout(() => {
         cleanupActiveSOS();
         startEcoBeaconMode(); 
@@ -277,18 +246,15 @@ async function startEcoBeaconMode() {
     cleanupActiveSOS(); 
     await initAudioEngine();
     await lockScreenWake();
-    
     isEcoMode = true;
     document.getElementById('eco-overlay').style.display = 'flex';
     triggerEcoPulse(); 
-    
     ecoBeaconInterval = setInterval(() => { triggerEcoPulse(); }, 180000);
 }
 
 function triggerEcoPulse() {
     if (!isEcoMode) return;
     gain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.02);
-    
     let pulseToggle = true;
     let pulseAudioInterval = setInterval(() => {
         osc.frequency.setTargetAtTime(pulseToggle ? 3600 : 2000, audioCtx.currentTime, 0.05);
@@ -296,7 +262,6 @@ function triggerEcoPulse() {
         if (navigator.vibrate) navigator.vibrate(100);
         toggleHardwareTorch(pulseToggle); 
     }, 250);
-    
     setTimeout(() => {
         clearInterval(pulseAudioInterval);
         if (gain) gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02);
@@ -315,12 +280,8 @@ function stopEcoBeaconMode() {
 async function openPulseModal() {
     cleanupActiveSOS();
     stopEcoBeaconMode();
-    
     document.getElementById('pulse-modal').style.display = 'flex';
     document.getElementById('pulse-instruction').style.display = 'block';
-    document.getElementById('pulse-title').style.display = 'block';
-    document.getElementById('btn-pulse-cancel').style.display = 'block';
-    
     document.getElementById('pulse-ui-box').style.display = 'none';
     document.getElementById('triage-buttons').style.display = 'none';
 }
@@ -328,7 +289,6 @@ async function openPulseModal() {
 async function startPulseHardware() {
     document.getElementById('pulse-instruction').style.display = 'none';
     document.getElementById('pulse-ui-box').style.display = 'flex';
-    
     try {
         videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 160, height: 120 } });
         let video = document.getElementById('v-preview');
@@ -339,7 +299,7 @@ async function startPulseHardware() {
     } catch (e) {
         document.getElementById('pulse-ui-box').style.display = 'none';
         document.getElementById('pulse-instruction').style.display = 'block';
-        document.getElementById('pulse-instruction').innerHTML = "<p style='color:#ff5252; font-size:1.2rem; font-weight:bold;'>❌ ПОМИЛКА ДОСТУПУ ДО КАМЕРИ.<br>Переходимо до ручного опитування...</p>";
+        document.getElementById('pulse-instruction').innerHTML = "<p style='color:#ff5252; font-size:1.2rem;'>❌ ПОМИЛКА КАМЕРИ. ОПИТУВАННЯ...</p>";
         setTimeout(() => { showTriageSelection(90); }, 2500);
     }
 }
@@ -349,10 +309,8 @@ function startPPGAnalysis() {
     let canvas = document.getElementById('c-proc');
     let ctx = canvas.getContext('2d', { willReadFrequently: true });
     let counterEl = document.getElementById('pulse-counter');
-    
     let secondsLeft = 15;
     counterEl.innerText = secondsLeft;
-    
     let redHistory = [];
     let pulseBeepsCount = 0;
     
@@ -361,13 +319,11 @@ function startPPGAnalysis() {
             canvas.width = 40; canvas.height = 30;
             ctx.drawImage(video, 0, 0, 40, 30);
             let frame = ctx.getImageData(0, 0, 40, 30).data;
-            
             let redSum = 0;
             for (let i = 0; i < frame.length; i += 4) { redSum += frame[i]; }
             let avgRed = redSum / (frame.length / 4);
             redHistory.push(avgRed);
             if(redHistory.length > 10) redHistory.shift();
-            
             if(redHistory.length >= 3 && avgRed > redHistory[redHistory.length-2] && redHistory[redHistory.length-2] < redHistory[redHistory.length-3]) {
                 pulseBeepsCount++;
                 if(navigator.vibrate) navigator.vibrate(25); 
@@ -378,15 +334,11 @@ function startPPGAnalysis() {
     pulseTimer = setInterval(() => {
         secondsLeft--;
         counterEl.innerText = secondsLeft;
-        
         if (secondsLeft <= 0) {
             clearInterval(pulseCheckInterval);
             clearInterval(pulseTimer);
-            
             let calculatedBPM = Math.round((pulseBeepsCount / 15) * 60);
-            if(calculatedBPM < 50 || calculatedBPM > 165) {
-                calculatedBPM = Math.floor(Math.random() * (110 - 90 + 1)) + 90;
-            }
+            if(calculatedBPM < 50 || calculatedBPM > 165) { calculatedBPM = Math.floor(Math.random() * (110 - 90 + 1)) + 90; }
             measuredBPM = calculatedBPM;
             showTriageSelection(measuredBPM);
         }
@@ -396,12 +348,8 @@ function startPPGAnalysis() {
 function showTriageSelection(bpm) {
     toggleHardwareTorch(false);
     if(videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoTrack = null; }
-    
     document.getElementById('pulse-instruction').style.display = 'none';
     document.getElementById('pulse-ui-box').style.display = 'none';
-    document.getElementById('pulse-title').style.display = 'none';
-    document.getElementById('btn-pulse-cancel').style.display = 'none';
-    
     let triageBox = document.getElementById('triage-buttons');
     triageBox.style.display = 'flex';
     triageBox.querySelector('h3').innerText = `ВАШ ПУЛЬС: ${bpm} УД/ХВ.\n\nЯК ВАМ ДИХАЄТЬСЯ?`;
@@ -412,7 +360,6 @@ function submitTriage(status) {
     document.getElementById('out-pulse').innerText = `${measuredBPM} уд/хв`;
     document.getElementById('out-breath').innerText = breathStatus;
     document.getElementById('pulse-modal').style.display = 'none';
-    
     sendEmergencySMS(true);
     startEcoBeaconMode();
 }
@@ -424,5 +371,23 @@ function closePulseModal() {
     if(videoStream) videoStream.getTracks().forEach(t => t.stop());
     videoTrack = null;
     document.getElementById('pulse-modal').style.display = 'none';
-    initCameraTrackOnly();
+}
+
+// ПОВНЕ ЗАКРИТТЯ ПРОГРАМИ
+function exitApplication() {
+    stopSirenSound();
+    if(ecoBeaconInterval) clearInterval(ecoBeaconInterval);
+    toggleHardwareTorch(false);
+    if(videoStream) { videoStream.getTracks().forEach(track => track.stop()); }
+    releaseScreenWake();
+    clearInterval(activeSosCountdownInterval);
+    clearTimeout(activeSosTimer);
+    clearInterval(pulseCheckInterval);
+    clearInterval(pulseTimer);
+    
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+        window.Capacitor.Plugins.App.exitApp();
+    } else {
+        window.close();
+    }
 }

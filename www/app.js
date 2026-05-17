@@ -85,24 +85,28 @@ function loadSettings() {
     document.getElementById('out-phone').innerText = `${p1} / ${p2}`;
 }
 
-// НАЙПОТУЖНІШИЙ НА ТИВНИЙ МЕТОД ВИЗНАЧЕННЯ КООРДИНАТ (ВИШКИ + GPS)
+// КРИТИЧНИЙ ФІКС: Примусове відкриття нативного "мосту" дозволів Android
 async function initSystemData() {
-    // Перевіряємо, чи завантажився нативний плагін Capacitor
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation) {
         const Geolocation = window.Capacitor.Plugins.Geolocation;
         
         try {
-            // Опитуємо вишки та мережу (швидкий старт)
+            // Обов'язковий крок: штовхаємо Android показати системне вікно дозволу
+            let permResult = await Geolocation.requestPermissions();
+            console.log("Статус дозволів системи:", permResult);
+            
+            // Запитуємо позицію (телефон автоматично опитає і вишки, і супутники)
             let position = await Geolocation.getCurrentPosition({
-                enableHighAccuracy: false, // Спочатку беремо грубу локацію по вишках без очікування супутників
-                timeout: 5000
+                enableHighAccuracy: true,
+                timeout: 7000,
+                maximumAge: 0
             });
             updateCoords(position.coords.latitude, position.coords.longitude);
         } catch (e) {
-            console.log("Швидкий пошук по мобільних вежах не вдався, вмикаємо трекер.");
+            document.getElementById('gps-display').innerText = "⚠️ ПОШУК СУПУТНИКІВ GPS...";
         }
 
-        // Вмикаємо постійне відстеження (якщо з'являться супутники, точність виросте)
+        // Постійне оновлення координат у реальному часі
         try {
             await Geolocation.watchPosition({
                 enableHighAccuracy: true,
@@ -110,21 +114,15 @@ async function initSystemData() {
             }, (position, err) => {
                 if (position && position.coords) {
                     updateCoords(position.coords.latitude, position.coords.longitude);
-                } else if (err && currentLat === "НЕВІДОМО") {
-                    document.getElementById('gps-display').innerText = "⚠️ ПОШУК СИГНАЛУ (БАЗОВІ СТАНЦІЇ ОПЕРАТОРА)...";
                 }
             });
-        } catch(err) {
-            document.getElementById('gps-display').innerText = "⚠️ ПОМИЛКА ІНІЦІАЛІЗАЦІЇ НА ТИВНОГО GPS";
-        }
+        } catch(err) {}
     } else {
-        // Резервний варіант (якщо тестуєш просто в браузері комп'ютера)
+        // Запасний варіант для ПК-браузера
         if ('geolocation' in navigator) {
             navigator.geolocation.watchPosition(pos => {
                 updateCoords(pos.coords.latitude, pos.coords.longitude);
-            }, () => {
-                if(currentLat === "НЕВІДОМО") document.getElementById('gps-display').innerText = "⚠️ БРАУЗЕР БЛОКУЄ СИГНАЛ";
-            }, { enableHighAccuracy: true });
+            }, () => {}, { enableHighAccuracy: true });
         }
     }
     initCameraTrackOnly();

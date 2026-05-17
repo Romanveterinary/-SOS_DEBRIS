@@ -41,10 +41,10 @@ jobs:
             npx capacitor-assets generate --android
           fi
           
-          # Прописуємо системні дозволи для Android
-          sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-feature android:name="android.hardware.camera" />\n    <uses-feature android:name="android.hardware.camera.flash" />' android/app/src/main/AndroidManifest.xml
+          # Прописуємо системні дозволи та ЗАХИСТ ВІД ВИМИКАННЯ (FOREGROUND_SERVICE)
+          sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />' android/app/src/main/AndroidManifest.xml
           
-          # КОРЕКТНИЙ ФІКС: Примусово реєструємо Geolocation Plugin в MainActivity з ПРАВИЛЬНИМ імпортом
+          # Примусово реєструємо Geolocation Plugin в MainActivity
           sed -i '/public class MainActivity extends BridgeActivity {}/d' android/app/src/main/java/ua/civil/sosdebris/MainActivity.java
           echo -e "package ua.civil.sosdebris;\n\nimport android.os.Bundle;\nimport com.getcapacitor.BridgeActivity;\nimport com.capacitorjs.plugins.geolocation.GeolocationPlugin;\n\npublic class MainActivity extends BridgeActivity {\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        registerPlugin(GeolocationPlugin.class);\n        super.onCreate(savedInstanceState);\n    }\n}" > android/app/src/main/java/ua/civil/sosdebris/MainActivity.java
 

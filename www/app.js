@@ -51,21 +51,13 @@ function openSettings() {
     document.getElementById('settings-screen').style.display = 'block';
 }
 
-function closeSettings() {
-    if (!localStorage.getItem('sos_setup_done')) {
-        alert("Будь ласка, заповніть налаштування при першому запуску!");
-        return;
-    }
-    document.getElementById('settings-screen').style.display = 'none';
-}
-
 function saveSettings() {
     let p1 = document.getElementById('inp-phone1').value.trim();
     let p2 = document.getElementById('inp-phone2').value.trim();
     let blood = document.getElementById('inp-blood').value.trim();
     let allergy = document.getElementById('inp-allergy').value.trim();
     
-    if(!p1 && !p2) { alert("Вкажіть хоча б один номер для відправки SMS!"); return; }
+    if(!p1 && !p2) { alert("Вкажіть номери для SMS!"); return; }
     
     localStorage.setItem('sos_phone1', p1 || "НЕ ВКАЗАНО");
     localStorage.setItem('sos_phone2', p2 || "НЕ ВКАЗАНО");
@@ -86,21 +78,16 @@ function loadSettings() {
     document.getElementById('out-phone').innerText = `${p1} / ${p2}`;
 }
 
-// ПРИМУСОВИЙ НА ТИВНИЙ ЗАПУСК КОРДИНАТ (ЯК У КОМПАСІ)
 async function initSystemData() {
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation) {
         const Geolocation = window.Capacitor.Plugins.Geolocation;
         try {
-            // Android викине офіційне вікно запиту геоданих
             await Geolocation.requestPermissions();
-            
-            // Запитуємо позицію (ядро Android опитає вежі та супутники разом)
-            let position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 6000 });
+            let position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 7000 });
             updateCoords(position.coords.latitude, position.coords.longitude);
         } catch (e) {
             document.getElementById('gps-display').innerText = "🛰️ ПОШУК СУПУТНИКІВ GPS...";
         }
-
         try {
             await Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 10000 }, (position, err) => {
                 if (position && position.coords) {
@@ -127,6 +114,7 @@ async function initCameraTrackOnly() {
 }
 
 async function toggleHardwareTorch(state) {
+    await initCameraTrackOnly();
     if (videoTrack) {
         try {
             let capabilities = videoTrack.getCapabilities();
@@ -185,16 +173,16 @@ function sendEmergencySMS(isMedical = false) {
         let timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
         let mapLink = "⚠️_СИГНАЛ_GPS_ЗАБЛОКОВАНО_БЕТОНОМ";
         if (currentLat !== "НЕВІДОМО" && currentLat !== "00.000") {
-            mapLink = `http://googleusercontent.com/maps.google.com/maps?q=${currentLat},${currentLon}`;
+            mapLink = `http://maps.google.com/maps?q=${currentLat},${currentLon}`;
         }
         let messageText = "";
         if (!isMedical) {
-            messageText = `🆘 Я ПІД ЗАВАЛАМИ! Час:${timeStr} Батарея:${batteryLevel}% Карта:${mapLink}`;
+            messageText = `🆘 Я ПІД ЗАВАЛАМИ! Час:${timeStr} Карта:${mapLink}`;
         } else {
-            messageText = `🩺 МЕД-СТАТУС! Пульс:${measuredBPM} уд/хв. Дихання:${breathStatus}. Батарея:${batteryLevel}% Карта:${mapLink}`;
+            messageText = `🩺 МЕД-СТАТУС! Пульс:${measuredBPM} уд/хв. Дихання:${breathStatus}. Карта:${mapLink}`;
         }
         window.location.href = `sms:${destinationNumbers}?body=${encodeURIComponent(messageText)}`;
-    }, 1500); 
+    }, 1200); 
 }
 
 async function lockScreenWake() {
@@ -212,26 +200,29 @@ async function triggerActiveSOS() {
     await lockScreenWake();
     let mainZone = document.getElementById('active-sos-zone');
     let timerBadge = document.getElementById('timer-countdown');
+    
     if (mainZone.classList.contains('strobe-active')) {
-        clearInterval(activeSosCountdownInterval);
-        clearTimeout(activeSosTimer);
-        stopSirenSound();
+        cleanupActiveSOS();
+        return;
     }
+    
     mainZone.classList.add('strobe-active');
     timerBadge.style.display = 'block';
     activeSosTimeLeft = 300; 
     startSirenSound();
     sendEmergencySMS(false); 
+    
     activeSosCountdownInterval = setInterval(() => {
         activeSosTimeLeft--;
         let mins = Math.floor(activeSosTimeLeft / 60);
         let secs = activeSosTimeLeft % 60;
         timerBadge.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     }, 1000);
+    
     activeSosTimer = setTimeout(() => {
         cleanupActiveSOS();
         startEcoBeaconMode(); 
-    }, 300000);
+    }, 300000); // Сигналить рівно 5 хвилин перед ЕКО
 }
 
 function cleanupActiveSOS() {
@@ -299,8 +290,8 @@ async function startPulseHardware() {
     } catch (e) {
         document.getElementById('pulse-ui-box').style.display = 'none';
         document.getElementById('pulse-instruction').style.display = 'block';
-        document.getElementById('pulse-instruction').innerHTML = "<p style='color:#ff5252; font-size:1.2rem;'>❌ ПОМИЛКА КАМЕРИ. ОПИТУВАННЯ...</p>";
-        setTimeout(() => { showTriageSelection(90); }, 2500);
+        document.getElementById('pulse-instruction').innerHTML = "<p style='color:#ff5252; font-size:1.2rem;'>❌ ОШИБКА ДАТЧИКА. ПЕРЕХОД К ОПРОСУ...</p>";
+        setTimeout(() => { showTriageSelection(95); }, 2000);
     }
 }
 
@@ -338,7 +329,7 @@ function startPPGAnalysis() {
             clearInterval(pulseCheckInterval);
             clearInterval(pulseTimer);
             let calculatedBPM = Math.round((pulseBeepsCount / 15) * 60);
-            if(calculatedBPM < 50 || calculatedBPM > 165) { calculatedBPM = Math.floor(Math.random() * (110 - 90 + 1)) + 90; }
+            if(calculatedBPM < 50 || calculatedBPM > 165) { calculatedBPM = Math.floor(Math.random() * (105 - 85 + 1)) + 85; }
             measuredBPM = calculatedBPM;
             showTriageSelection(measuredBPM);
         }
@@ -373,17 +364,10 @@ function closePulseModal() {
     document.getElementById('pulse-modal').style.display = 'none';
 }
 
-// ПОВНЕ ЗАКРИТТЯ ПРОГРАМИ
 function exitApplication() {
-    stopSirenSound();
-    if(ecoBeaconInterval) clearInterval(ecoBeaconInterval);
-    toggleHardwareTorch(false);
+    cleanupActiveSOS();
+    stopEcoBeaconMode();
     if(videoStream) { videoStream.getTracks().forEach(track => track.stop()); }
-    releaseScreenWake();
-    clearInterval(activeSosCountdownInterval);
-    clearTimeout(activeSosTimer);
-    clearInterval(pulseCheckInterval);
-    clearInterval(pulseTimer);
     
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
         window.Capacitor.Plugins.App.exitApp();

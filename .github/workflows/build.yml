@@ -17,35 +17,36 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Налаштовуємо Java JDK
+      - name: Налаштовуємо Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '21'
+          java-version: '17'
 
-      - name: Збірка APK через Capacitor
+      - name: Збірка APK (Стабільна версія Capacitor v5)
         run: |
           npm init -y
-          npm install @capacitor/core @capacitor/android
-          npm install -D @capacitor/cli @capacitor/assets
+          # Жорстко фіксуємо стабільну 5-ту версію рушія
+          npm install @capacitor/core@5 @capacitor/android@5
+          npm install -D @capacitor/cli@5 @capacitor/assets@3
           
-          # Ініціалізація: Назва на екрані телефону буде просто "SOS"
+          # Ініціалізація
           npx cap init "SOS" "ua.civil.sosdebris" --web-dir www
           npx cap add android
           
-          # Автоматично створюємо всі розміри іконок з твого файлу icon.png
+          # Генерація іконок
           if [ -f "icon.png" ]; then
             mkdir -p assets
             mv icon.png assets/icon.png
             npx capacitor-assets generate --android
           fi
           
-          # Додаємо тактичні дозволи для Android (Камера, Локація, Сон, Вібро)
+          # Вшиваємо дозволи
           sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-feature android:name="android.hardware.camera" />\n    <uses-feature android:name="android.hardware.camera.flash" />' android/app/src/main/AndroidManifest.xml
           
           npx cap sync android
           
-          # Компіляція
+          # Запуск компіляції
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug

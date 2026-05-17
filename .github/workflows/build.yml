@@ -23,14 +23,17 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Збірка APK (Стабільна версія Capacitor v5)
+      - name: Збірка APK (Capacitor v5 з плагіном Геолокації)
         run: |
           npm init -y
-          # Жорстко фіксуємо стабільну 5-ту версію рушія
+          # Встановлюємо стабільну 5-ту версію ядра
           npm install @capacitor/core@5 @capacitor/android@5
           npm install -D @capacitor/cli@5 @capacitor/assets@3
           
-          # Ініціалізація
+          # ВСТАНОВЛЮЄМО НА ТИВНИЙ ПЛАГІН ДЛЯ ОПИТУ ВИШОК ТА GPS
+          npm install @capacitor/geolocation@5
+          
+          # Ініціалізація проєкту
           npx cap init "SOS" "ua.civil.sosdebris" --web-dir www
           npx cap add android
           
@@ -41,12 +44,12 @@ jobs:
             npx capacitor-assets generate --android
           fi
           
-          # Вшиваємо дозволи
-          sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-feature android:name="android.hardware.camera" />\n    <uses-feature android:name="android.hardware.camera.flash" />' android/app/src/main/AndroidManifest.xml
+          # Прописуємо в AndroidManifest жорсткі дозволи на грубу (вишки) та точну (GPS) локацію
+          sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-feature android:name="android.hardware.camera" />\n    <uses-feature android:name="android.hardware.camera.flash" />' android/app/src/main/AndroidManifest.xml
           
           npx cap sync android
           
-          # Запуск компіляції
+          # Компіляція програми
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug

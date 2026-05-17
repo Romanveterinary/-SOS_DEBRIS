@@ -85,28 +85,47 @@ function loadSettings() {
     document.getElementById('out-phone').innerText = `${p1} / ${p2}`;
 }
 
-// ЗАЛІЗОБЕТОННИЙ ГЕО-МАСТЕР: Працює через супутники, мобільні вишки та інтернет одночасно
-function initSystemData() {
-    if ('geolocation' in navigator) {
+// НАЙПОТУЖНІШИЙ НА ТИВНИЙ МЕТОД ВИЗНАЧЕННЯ КООРДИНАТ (ВИШКИ + GPS)
+async function initSystemData() {
+    // Перевіряємо, чи завантажився нативний плагін Capacitor
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation) {
+        const Geolocation = window.Capacitor.Plugins.Geolocation;
         
-        // 1. Швидкий старт (Беремо будь-які наявні координати з пам'яті телефону/вишок за 1 мілісекунду)
-        navigator.geolocation.getCurrentPosition(pos => {
-            updateCoords(pos.coords.latitude, pos.coords.longitude);
-        }, () => {}, { enableHighAccuracy: false, timeout: 2000, maximumAge: 3600000 });
+        try {
+            // Опитуємо вишки та мережу (швидкий старт)
+            let position = await Geolocation.getCurrentPosition({
+                enableHighAccuracy: false, // Спочатку беремо грубу локацію по вишках без очікування супутників
+                timeout: 5000
+            });
+            updateCoords(position.coords.latitude, position.coords.longitude);
+        } catch (e) {
+            console.log("Швидкий пошук по мобільних вежах не вдався, вмикаємо трекер.");
+        }
 
-        // 2. Високоточний супутниковий трекер (Постійно оновлює дані при появі чистого неба)
-        navigator.geolocation.watchPosition(pos => {
-            updateCoords(pos.coords.latitude, pos.coords.longitude);
-        }, err => {
-            // Якщо супутники пропали, пробуємо взяти грубу локацію по базових станціях зв'язку
-            navigator.geolocation.getCurrentPosition(subPos => {
-                updateCoords(subPos.coords.latitude, subPos.coords.longitude);
-            }, () => {
-                if(currentLat === "НЕВІДОМО") {
-                    document.getElementById('gps-display').innerText = "⚠️ ПОШУК СУПУТНИКІВ GPS... (ВИЙДІТЬ ДО ВІКНА)";
+        // Вмикаємо постійне відстеження (якщо з'являться супутники, точність виросте)
+        try {
+            await Geolocation.watchPosition({
+                enableHighAccuracy: true,
+                timeout: 10000
+            }, (position, err) => {
+                if (position && position.coords) {
+                    updateCoords(position.coords.latitude, position.coords.longitude);
+                } else if (err && currentLat === "НЕВІДОМО") {
+                    document.getElementById('gps-display').innerText = "⚠️ ПОШУК СИГНАЛУ (БАЗОВІ СТАНЦІЇ ОПЕРАТОРА)...";
                 }
-            }, { enableHighAccuracy: false, timeout: 4000 });
-        }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+            });
+        } catch(err) {
+            document.getElementById('gps-display').innerText = "⚠️ ПОМИЛКА ІНІЦІАЛІЗАЦІЇ НА ТИВНОГО GPS";
+        }
+    } else {
+        // Резервний варіант (якщо тестуєш просто в браузері комп'ютера)
+        if ('geolocation' in navigator) {
+            navigator.geolocation.watchPosition(pos => {
+                updateCoords(pos.coords.latitude, pos.coords.longitude);
+            }, () => {
+                if(currentLat === "НЕВІДОМО") document.getElementById('gps-display').innerText = "⚠️ БРАУЗЕР БЛОКУЄ СИГНАЛ";
+            }, { enableHighAccuracy: true });
+        }
     }
     initCameraTrackOnly();
 }
@@ -162,12 +181,8 @@ function startSirenSound() {
     sirenInterval = setInterval(() => {
         osc.frequency.setTargetAtTime(frequencyToggle ? 3800 : 1800, audioCtx.currentTime, 0.08);
         frequencyToggle = !frequencyToggle;
-        
         if (navigator.vibrate) navigator.vibrate(150);
-        
-        if(!isEcoMode) {
-            toggleHardwareTorch(frequencyToggle);
-        }
+        if(!isEcoMode) { toggleHardwareTorch(frequencyToggle); }
     }, 300);
 }
 
@@ -220,7 +235,6 @@ function releaseScreenWake() {
 
 async function triggerActiveSOS() {
     if(isEcoMode) stopEcoBeaconMode();
-    
     await initAudioEngine();
     await lockScreenWake();
     
@@ -263,23 +277,18 @@ function cleanupActiveSOS() {
 
 async function startEcoBeaconMode() {
     cleanupActiveSOS(); 
-    
     await initAudioEngine();
     await lockScreenWake();
     
     isEcoMode = true;
     document.getElementById('eco-overlay').style.display = 'flex';
-    
     triggerEcoPulse(); 
     
-    ecoBeaconInterval = setInterval(() => {
-        triggerEcoPulse();
-    }, 180000);
+    ecoBeaconInterval = setInterval(() => { triggerEcoPulse(); }, 180000);
 }
 
 function triggerEcoPulse() {
     if (!isEcoMode) return;
-    
     gain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.02);
     
     let pulseToggle = true;
@@ -327,7 +336,6 @@ async function startPulseHardware() {
         let video = document.getElementById('v-preview');
         video.srcObject = videoStream;
         videoTrack = videoStream.getVideoTracks()[0];
-        
         await toggleHardwareTorch(true);
         startPPGAnalysis();
     } catch (e) {
@@ -359,7 +367,6 @@ function startPPGAnalysis() {
             let redSum = 0;
             for (let i = 0; i < frame.length; i += 4) { redSum += frame[i]; }
             let avgRed = redSum / (frame.length / 4);
-            
             redHistory.push(avgRed);
             if(redHistory.length > 10) redHistory.shift();
             
@@ -382,7 +389,6 @@ function startPPGAnalysis() {
             if(calculatedBPM < 50 || calculatedBPM > 165) {
                 calculatedBPM = Math.floor(Math.random() * (110 - 90 + 1)) + 90;
             }
-            
             measuredBPM = calculatedBPM;
             showTriageSelection(measuredBPM);
         }
@@ -405,10 +411,8 @@ function showTriageSelection(bpm) {
 
 function submitTriage(status) {
     breathStatus = status;
-    
     document.getElementById('out-pulse').innerText = `${measuredBPM} уд/хв`;
     document.getElementById('out-breath').innerText = breathStatus;
-    
     document.getElementById('pulse-modal').style.display = 'none';
     
     sendEmergencySMS(true);

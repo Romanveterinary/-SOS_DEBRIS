@@ -1,0 +1,57 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Отримуємо код
+        uses: actions/checkout@v4
+
+      - name: Налаштовуємо Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Налаштовуємо Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Збірка APK через Capacitor
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/android
+          npm install -D @capacitor/cli @capacitor/assets
+          
+          # Ініціалізація: Назва на екрані телефону буде просто "SOS"
+          npx cap init "SOS" "ua.civil.sosdebris" --web-dir www
+          npx cap add android
+          
+          # Автоматично створюємо всі розміри іконок з твого файлу icon.png
+          if [ -f "icon.png" ]; then
+            mkdir -p assets
+            mv icon.png assets/icon.png
+            npx capacitor-assets generate --android
+          fi
+          
+          # Додаємо тактичні дозволи для Android (Камера, Локація, Сон, Вібро)
+          sed -i '/android.permission.INTERNET/a \    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-feature android:name="android.hardware.camera" />\n    <uses-feature android:name="android.hardware.camera.flash" />' android/app/src/main/AndroidManifest.xml
+          
+          npx cap sync android
+          
+          # Компіляція
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Вивантажуємо готовий APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SOS-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk

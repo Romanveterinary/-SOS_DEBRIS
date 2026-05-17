@@ -85,18 +85,36 @@ function loadSettings() {
     document.getElementById('out-phone').innerText = `${p1} / ${p2}`;
 }
 
+// ЗАЛІЗОБЕТОННИЙ ГЕО-МАСТЕР: Працює через супутники, мобільні вишки та інтернет одночасно
 function initSystemData() {
     if ('geolocation' in navigator) {
-        // Вмикаємо максимальну точність GPS
+        
+        // 1. Швидкий старт (Беремо будь-які наявні координати з пам'яті телефону/вишок за 1 мілісекунду)
+        navigator.geolocation.getCurrentPosition(pos => {
+            updateCoords(pos.coords.latitude, pos.coords.longitude);
+        }, () => {}, { enableHighAccuracy: false, timeout: 2000, maximumAge: 3600000 });
+
+        // 2. Високоточний супутниковий трекер (Постійно оновлює дані при появі чистого неба)
         navigator.geolocation.watchPosition(pos => {
-            currentLat = pos.coords.latitude.toFixed(5);
-            currentLon = pos.coords.longitude.toFixed(5);
-            document.getElementById('gps-display').innerText = `LAT: ${currentLat} | LON: ${currentLon}`;
+            updateCoords(pos.coords.latitude, pos.coords.longitude);
         }, err => {
-            document.getElementById('gps-display').innerText = "⚠️ GPS СИГНАЛ ЗАБЛОКОВАНО";
-        }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+            // Якщо супутники пропали, пробуємо взяти грубу локацію по базових станціях зв'язку
+            navigator.geolocation.getCurrentPosition(subPos => {
+                updateCoords(subPos.coords.latitude, subPos.coords.longitude);
+            }, () => {
+                if(currentLat === "НЕВІДОМО") {
+                    document.getElementById('gps-display').innerText = "⚠️ ПОШУК СУПУТНИКІВ GPS... (ВИЙДІТЬ ДО ВІКНА)";
+                }
+            }, { enableHighAccuracy: false, timeout: 4000 });
+        }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
     }
     initCameraTrackOnly();
+}
+
+function updateCoords(lat, lon) {
+    currentLat = parseFloat(lat).toFixed(5);
+    currentLon = parseFloat(lon).toFixed(5);
+    document.getElementById('gps-display').innerText = `LAT: ${currentLat} | LON: ${currentLon}`;
 }
 
 async function initCameraTrackOnly() {
@@ -160,7 +178,6 @@ function stopSirenSound() {
     toggleHardwareTorch(false);
 }
 
-// --- РОЗСИЛКА SMS З ПІДСТРАХОВКОЮ НА ГАРЯЧИЙ СТАРТ GPS ---
 function sendEmergencySMS(isMedical = false) {
     let p1 = localStorage.getItem('sos_phone1');
     let p2 = localStorage.getItem('sos_phone2');
@@ -172,15 +189,13 @@ function sendEmergencySMS(isMedical = false) {
     
     let destinationNumbers = targetPool.join(',');
     
-    // ФІКС: якщо натиснули миттєво, даємо супутникам 2.5 секунди затримки перед збором тексту
     setTimeout(() => {
         let now = new Date();
         let timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
         
-        // Розумне формування посилання
         let mapLink = "⚠️_СИГНАЛ_GPS_ЗАБЛОКОВАНО_БЕТОНОМ";
         if (currentLat !== "НЕВІДОМО" && currentLat !== "00.000") {
-            mapLink = `https://www.google.com/maps?q=${currentLat},${currentLon}`;
+            mapLink = `http://googleusercontent.com/maps.google.com/maps?q=${currentLat},${currentLon}`;
         }
         
         let messageText = "";
@@ -223,7 +238,7 @@ async function triggerActiveSOS() {
     activeSosTimeLeft = 300; 
     
     startSirenSound();
-    sendEmergencySMS(false); // Запуститься з безпечною затримкою у 2.5 сек
+    sendEmergencySMS(false); 
     
     activeSosCountdownInterval = setInterval(() => {
         activeSosTimeLeft--;

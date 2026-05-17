@@ -5,7 +5,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SOS МАЯК: ПОДОЛАННЯ</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: monospace; user-select: none; }
+        * { box-sizing: border-box; <!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SOS РЯТУВАЛЬНИК</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --primary-red: #ff3333;
+            --text-main: #ffffff;
+            --text-muted: #aaaaaa;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .system-bar {
+            background: #000; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.85rem; border-bottom: 2px solid #222;
+        }
+        .gps-status { color: #ffcc00; font-weight: bold; font-family: monospace; }
+        .batt-status { color: #00ff66; font-weight: bold; }
+
+        .main-content { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+
+        .status-board { background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid #333; }
+        .status-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
+        .status-row:last-child { margin-bottom: 0; }
+        .val { font-weight: bold; color: #00ffcc; }
+
+        .sos-trigger-zone { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; margin: 20px 0; position: relative; }
+        .sos-btn {
+            width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, #ff4444 0%, #cc0000 100%);
+            border: 8px solid #ffffff; box-shadow: 0 0 30px rgba(255, 51, 51, 0.6); color: #fff;
+            font-size: 1.8rem; font-weight: 900; display: flex; flex-direction: column; justify-content: center; align-items: center; letter-spacing: 2px; cursor: pointer;
+        }
+        .sos-btn:active { transform: scale(0.93); }
+        .timer-badge { display: none; margin-top: 15px; background: #ff3333; color: #fff; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-family: monospace; font-size: 1.2rem; }
+
+        .strobe-active { animation: screenFlash 0.4s infinite; }
+
+        .action-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn-secondary { background: #2a2a2a; border: 2px solid #444; color: #fff; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 1rem; text-align: center; cursor: pointer; }
+        .btn-secondary:active { background: #3a3a3a; }
+        
+        .btn-exit { background: #330000; border: 2px solid #880000; color: #ff8888; }
+        .btn-exit:active { background: #550000; }
+
+        .overlay-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 100; display: none; flex-direction: column; padding: 20px; overflow-y: auto; }
+        .overlay-screen h2 { margin-bottom: 20px; text-align: center; border-bottom: 2px solid #ff3333; padding-bottom: 10px; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 0.9rem; }
+        .form-group input { width: 100%; background: #222; border: 1px solid #444; padding: 12px; color: #fff; border-radius: 6px; font-size: 1rem; text-align: center; }
+        .btn-main { background: #00cc66; color: #fff; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; width: 100%; margin-top: 10px; cursor: pointer; }
+
+        #eco-overlay { background: #000000; justify-content: center; align-items: center; }
+        #eco-overlay h1 { color: #00ff66; text-align: center; font-size: 1.5rem; margin-bottom: 20px; }
+
+        #pulse-modal { background: rgba(0,0,0,0.95); justify-content: center; align-items: center; }
+        .pulse-box { width: 90%; background: #1e1e1e; border: 2px solid #333; border-radius: 15px; padding: 20px; text-align: center; }
+        #v-preview { width: 160px; height: 120px; border-radius: 10px; background: #000; display: none; margin: 15px auto; transform: scaleX(-1); }
+        .triage-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 15px; }
+        .btn-triage { padding: 14px; border-radius: 8px; font-weight: bold; color: #fff; border: none; font-size: 1rem; }
+
+        @keyframes screenFlash { 0% { background-color: #121212; } 50% { background-color: #cc0000; } 100% { background-color: #121212; } }
+    </style>
+</head>
+<body id="entire-body">
+
+    <div class="system-bar">
+        <div class="gps-status" id="gps-display">🛰️ ПОШУК СУПУТНИКІВ/ВИШОК...</div>
+        <div class="batt-status">🔋 <span id="batt-val">--</span>%</div>
+    </div>
+
+    <div class="main-content">
+        <div class="status-board">
+            <div class="status-row"><span>Медичний Стан:</span> <span class="val" id="out-blood">Не вказано</span></div>
+            <div class="status-row"><span>Алергії / Нотатки:</span> <span class="val" id="out-allergy">Немає</span></div>
+            <div class="status-row"><span>Останній пульс:</span> <span class="val" id="out-pulse">---</span></div>
+            <div class="status-row"><span>Дихання:</span> <span class="val" id="out-breath">---</span></div>
+            <div class="status-row"><span>Контакти SOS:</span> <span class="val" id="out-phone">---</span></div>
+        </div>
+
+        <div class="sos-trigger-zone" id="active-sos-zone">
+            <div class="sos-btn" onclick="triggerActiveSOS()">
+                <span>🆘</span>
+                <span style="font-size:1.1rem; margin-top:5px;">Я ЖИВИЙ</span>
+            </div>
+            <div class="timer-badge" id="timer-countdown">5:00</div>
+        </div>
+
+        <div class="action-bar">
+            <div class="btn-secondary" onclick="openPulseModal()">🔬 МЕД-ТЕСТ</div>
+            <div class="btn-secondary" onclick="openSettings()">⚙️ НАЛАШТУВАТИ</div>
+            <div class="btn-secondary btn-exit" onclick="exitApplication()" style="grid-column: span 2; margin-top: 5px;">🛑 ВИМКНУТИ ДОДАТОК</div>
+        </div>
+    </div>
+
+    <div class="overlay-screen" id="settings-screen">
+        <div style="font-size: 5rem; text-align: center; margin-top: 20px;">🆘</div>
+        <h2>НАЛАШТУВАННЯ SOS</h2>
+        <div class="form-group">
+            <label>Телефон 1 (Основний для SMS):</label>
+            <input type="tel" id="inp-phone1" placeholder="+380xxxxxxxxx">
+        </div>
+        <div class="form-group">
+            <label>Телефон 2 (Резервний):</label>
+            <input type="tel" id="inp-phone2" placeholder="+380xxxxxxxxx">
+        </div>
+        <div class="form-group">
+            <label>Медичні дані (Група крові, резус):</label>
+            <input type="text" id="inp-blood" placeholder="Напр: А(II) Rh+">
+        </div>
+        <div class="form-group">
+            <label>Хронічні хвороби чи критичні алергії:</label>
+            <input type="text" id="inp-allergy" placeholder="Напр: Аллергія на пеніцилін">
+        </div>
+        
+        <button class="btn-main" onclick="saveSettings()">ЗБЕРЕГТИ ТА АКТИВУВАТИ</button>
+    </div>
+
+    <div class="overlay-screen" id="eco-overlay">
+        <h1>🔋 АКТИВОВАНО ЕКО-МАЯК</h1>
+        <p style="text-align:center; color:#888; margin-bottom:30px;">Екран заблоковано. Імпульси кожні 3 хвилини.</p>
+        <button class="btn-main" style="background:#ff3333;" onclick="stopEcoBeaconMode()">ВИЙТИ З ЕКО-РЕЖИМУ</button>
+    </div>
+
+    <div class="overlay-screen" id="pulse-modal">
+        <div class="pulse-box">
+            <h2>ВИМІРЮВАННЯ ПУЛЬСУ</h2>
+            <div id="pulse-instruction">
+                <p style="margin:20px 0; color:#ccc; font-size:1.1rem; line-height:1.4;">Притисніть <b style="color:#00ffcc;">ДВА ПАЛЬЦІ або ВСЮ ДОЛОНЮ</b> до блоку камер та спалаху одночасно.</p>
+                <button class="btn-main" onclick="startPulseHardware()">✅ ДОЛОНЯ НА МІСЦІ (ПОЧАТИ)</button>
+            </div>
+            <div id="pulse-ui-box" style="display:none;">
+                <video id="v-preview" autoplay playsinline muted></video>
+                <canvas id="c-proc" style="display:none;"></canvas>
+                <div style="font-size:4rem; font-weight:bold; color:#ff3333; margin:15px 0;" id="pulse-counter">15</div>
+                <p style="color:#00ffcc; font-weight:bold;">ТРИМАЙТЕ ДОЛОНЮ НЕ РУХОМО...</p>
+            </div>
+            <div id="triage-buttons" style="display:none;">
+                <h3 style="margin-bottom:15px;">ЯК ВАМ ДИХАЄТЬСЯ?</h3>
+                <div class="triage-grid">
+                    <button class="btn-triage" style="background:#00cc66;" onclick="submitTriage('ДИХАЮ ВІЛЬНО')">🟢 Дихаю нормально</button>
+                    <button class="btn-triage" style="background:#ff9900;" onclick="submitTriage('ВАЖКЕ ДИХАННЯ')">🟡 Дихання важке</button>
+                    <button class="btn-triage" style="background:#ff3333;" onclick="submitTriage('ЗАДИХАЮСЬ')">🔴 Задихаюсь</button>
+                </div>
+            </div>
+            <button class="btn-secondary" id="btn-pulse-cancel" onclick="closePulseModal()" style="width:100%; margin-top:20px;">СКАСУВАТИ</button>
+        </div>
+    </div>
+
+    <script src="capacitor.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>margin: 0; padding: 0; font-family: monospace; user-select: none; }
         body { background: #000; color: #fff; display: block; height: 100vh; overflow: hidden; }
         
         /* Верхня панель з налаштуваннями */

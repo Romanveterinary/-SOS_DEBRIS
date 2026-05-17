@@ -2,13 +2,6 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOS МАЯК: ПОДОЛАННЯ</title>
-    <style>
-        * { box-sizing: border-box; <!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>SOS РЯТУВАЛЬНИК</title>
     <style>
@@ -34,32 +27,36 @@
             background: #000; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;
             font-size: 0.85rem; border-bottom: 2px solid #222;
         }
-        .gps-status { color: #ffcc00; font-weight: bold; font-family: monospace; }
+        .gps-status { color: #00ffcc; font-weight: bold; font-family: monospace; }
         .batt-status { color: #00ff66; font-weight: bold; }
 
-        .main-content { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .main-content { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; }
 
-        .status-board { background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid #333; }
-        .status-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
+        .status-board { background: var(--card-bg); border-radius: 12px; padding: 12px; border: 1px solid #333; }
+        .status-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; }
         .status-row:last-child { margin-bottom: 0; }
         .val { font-weight: bold; color: #00ffcc; }
 
-        .sos-trigger-zone { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; margin: 20px 0; position: relative; }
+        .sos-trigger-zone { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; margin: 15px 0; position: relative; }
         .sos-btn {
-            width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, #ff4444 0%, #cc0000 100%);
+            width: 170px; height: 170px; border-radius: 50%; background: radial-gradient(circle, #ff4444 0%, #cc0000 100%);
             border: 8px solid #ffffff; box-shadow: 0 0 30px rgba(255, 51, 51, 0.6); color: #fff;
-            font-size: 1.8rem; font-weight: 900; display: flex; flex-direction: column; justify-content: center; align-items: center; letter-spacing: 2px; cursor: pointer;
+            font-size: 1.6rem; font-weight: 900; display: flex; flex-direction: column; justify-content: center; align-items: center; letter-spacing: 2px; cursor: pointer;
         }
         .sos-btn:active { transform: scale(0.93); }
-        .timer-badge { display: none; margin-top: 15px; background: #ff3333; color: #fff; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-family: monospace; font-size: 1.2rem; }
+        .timer-badge { display: none; margin-top: 12px; background: #ff3333; color: #fff; padding: 4px 15px; border-radius: 20px; font-weight: bold; font-family: monospace; font-size: 1.1rem; }
 
         .strobe-active { animation: screenFlash 0.4s infinite; }
 
-        .action-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .btn-secondary { background: #2a2a2a; border: 2px solid #444; color: #fff; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 1rem; text-align: center; cursor: pointer; }
+        /* Сітка дій змінена на 2 стовпчики */
+        .action-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-secondary { background: #2a2a2a; border: 2px solid #444; color: #fff; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 0.95rem; text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
         .btn-secondary:active { background: #3a3a3a; }
         
-        .btn-exit { background: #330000; border: 2px solid #880000; color: #ff8888; }
+        .btn-eco { background: #003311; border: 2px solid #00aa44; color: #00ff66; }
+        .btn-eco:active { background: #004411; }
+        
+        .btn-exit { background: #330000; border: 2px solid #880000; color: #ff8888; grid-column: span 2; }
         .btn-exit:active { background: #550000; }
 
         .overlay-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 100; display: none; flex-direction: column; padding: 20px; overflow-y: auto; }
@@ -85,7 +82,7 @@
 <body id="entire-body">
 
     <div class="system-bar">
-        <div class="gps-status" id="gps-display">🛰️ ПОШУК СУПУТНИКІВ/ВИШОК...</div>
+        <div class="gps-status" id="gps-display">🛰️ ПОШУК СУПУТНИКІВ GPS...</div>
         <div class="batt-status">🔋 <span id="batt-val">--</span>%</div>
     </div>
 
@@ -109,7 +106,9 @@
         <div class="action-bar">
             <div class="btn-secondary" onclick="openPulseModal()">🔬 МЕД-ТЕСТ</div>
             <div class="btn-secondary" onclick="openSettings()">⚙️ НАЛАШТУВАТИ</div>
-            <div class="btn-secondary btn-exit" onclick="exitApplication()" style="grid-column: span 2; margin-top: 5px;">🛑 ВИМКНУТИ ДОДАТОК</div>
+            <div class="btn-secondary btn-eco" onclick="startEcoBeaconMode()">🔋 ЕКО-МАЯК</div>
+            <div class="btn-secondary" onclick="openSettings()">⚙️ СЕРВІС</div>
+            <div class="btn-secondary btn-exit" onclick="exitApplication()">🛑 ВИМКНУТИ ДОДАТОК</div>
         </div>
     </div>
 
@@ -121,7 +120,7 @@
             <input type="tel" id="inp-phone1" placeholder="+380xxxxxxxxx">
         </div>
         <div class="form-group">
-            <label>Телефон 2 (Резервний):</label>
+            <label>Telephone 2 (Резервний):</label>
             <input type="tel" id="inp-phone2" placeholder="+380xxxxxxxxx">
         </div>
         <div class="form-group">
@@ -146,7 +145,7 @@
         <div class="pulse-box">
             <h2>ВИМІРЮВАННЯ ПУЛЬСУ</h2>
             <div id="pulse-instruction">
-                <p style="margin:20px 0; color:#ccc; font-size:1.1rem; line-height:1.4;">Притисніть <b style="color:#00ffcc;">ДВА ПАЛЬЦІ або ВСЮ ДОЛОНЮ</b> до блоку камер та спалаху одночасно.</p>
+                <p style="margin:20px 0; color:#ccc; font-size:1.1rem; line-height:1.4;">Притисніть <b style="color:#00ffcc;">ВСТЮ ДОЛОНЮ</b> до блоку камер та спалаху одночасно.</p>
                 <button class="btn-main" onclick="startPulseHardware()">✅ ДОЛОНЯ НА МІСЦІ (ПОЧАТИ)</button>
             </div>
             <div id="pulse-ui-box" style="display:none;">
@@ -169,154 +168,5 @@
 
     <script src="capacitor.js"></script>
     <script src="app.js"></script>
-</body>
-</html>margin: 0; padding: 0; font-family: monospace; user-select: none; }
-        body { background: #000; color: #fff; display: block; height: 100vh; overflow: hidden; }
-        
-        /* Верхня панель з налаштуваннями */
-        #header-bar { height: 6vh; background: #111; position: relative; padding: 0 15px; border-bottom: 1px solid #222; z-index: 10; line-height: 6vh; }
-        #gps-display { display: inline-block; color: #0cf; font-size: 1rem; font-weight: bold; }
-        #settings-trigger { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 1.6rem; color: #aaa; cursor: pointer; background: transparent; border: none; }
-
-        /* Екран налаштувань (Модальне вікно) */
-        #settings-screen { position: absolute; top:0; left:0; width:100%; height:100%; background:#151515; z-index: 500; display: block; padding: 20px; overflow-y: auto; text-align: center; }
-        .input-group { width: 100%; max-width: 320px; margin: 0 auto 12px auto; display: block; text-align: left; }
-        .input-group label { color: #888; font-size: 0.85rem; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: bold; }
-        .input-field { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #444; background: #222; color: #fff; font-size: 1.1rem; text-align: center; display: block; }
-        .btn-save { background: #4ade80; color: #000; font-weight: bold; font-size: 1.3rem; padding: 14px; border: none; border-radius: 8px; margin: 15px auto 0 auto; width: 100%; max-width: 320px; cursor: pointer; text-transform: uppercase; display: block; }
-
-        /* МЕДИЧНИЙ ТРИАЖ (КОМПАКТНИЙ) */
-        #med-info-bar { height: 5vh; background: #080808; text-align: center; white-space: nowrap; font-size: 0.85rem; color: #aaa; border-bottom: 1px solid #111; line-height: 5vh; }
-        .med-badge { display: inline-block; margin: 0 8px; font-weight: bold; }
-        .med-badge span { color: #ff5252; }
-
-        /* СТУПІНЬ 1: ГІГАНТСЬКА КНОПКА Я ЖИВИЙ (3/4 ЕКРАНУ = 73vh) */
-        #active-sos-zone { height: 73vh; padding: 10px; position: relative; display: block; }
-        .btn-active-sos { width: 100%; height: 100%; border: none; border-radius: 24px; font-size: 3.2rem; font-weight: bold; color: #fff; text-transform: uppercase; cursor: pointer; background: linear-gradient(135deg, #ff1744, #b71c1c); border: 5px solid #ff5252; box-shadow: 0 10px 30px rgba(255, 23, 68, 0.4); text-shadow: 0 4px 10px rgba(0,0,0,0.9); display: block; text-align: center; }
-        .btn-subtext { font-size: 1rem; font-weight: normal; margin-top: 15px; opacity: 0.9; letter-spacing: 1px; font-family: sans-serif; text-transform: none; background: rgba(0,0,0,0.4); padding: 5px 15px; border-radius: 20px; display: inline-block; }
-        #timer-countdown { display: none; position: absolute; top: 20px; right: 25px; background: rgba(0,0,0,0.8); padding: 5px 12px; border-radius: 8px; color: #fff; font-size: 1.4rem; border: 2px solid #fff; z-index: 15; }
-
-        /* НИЖНЯ ПАНЕЛЬ: ДВІ ДОДАТКОВІ КНОПКИ (У КУСКУ 16vh) */
-        #bottom-zone { height: 16vh; padding: 0 10px 10px 10px; position: relative; display: block; }
-        .btn-small-tactical { width: 48%; height: 100%; border: none; border-radius: 16px; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; cursor: pointer; box-shadow: 0 5px 12 rgba(0,0,0,0.5); display: block; text-align: center; }
-        .btn-eco-beacon { float: left; background: linear-gradient(135deg, #ffd600, #ff6d00); border: 2px solid #ffea00; color: #000; }
-        .btn-med-check { float: right; background: linear-gradient(135deg, #00e676, #00c853); border: 2px solid #69f0ae; color: #000; }
-        .btn-small-subtext { font-size: 0.75rem; font-weight: normal; opacity: 0.8; margin-top: 3px; font-family: sans-serif; text-transform: none; display: block; }
-
-        /* АНІМАЦІЯ АКТИВНОГО СТРОБОСКОПА */
-        .strobe-active { animation: flashScreen 0.15s infinite; }
-        @keyframes flashScreen { 0% { background: #fff; } 50% { background: #b71c1c; } 100% { background: #fff; } }
-
-        /* МАСКА ДЛЯ ЕКО-МАЯКА (ПОВНИЙ БЛЕКАУТ) */
-        #eco-overlay { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:#000; z-index: 600; text-align: center; padding-top: 30vh; }
-        .eco-text { color: #222; font-size: 1.4rem; line-height: 1.6; font-weight: bold; display: block; }
-
-        /* МОДАЛЬНЕ ВІКНО ПУЛЬСОМЕТРА КАМЕРИ */
-        #pulse-modal { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:#000; z-index: 700; text-align: center; padding: 20px; overflow-y: auto; }
-        #v-preview { display: none; width: 1px; height: 1px; }
-        #pulse-instruction { background: #111; padding: 20px; border-radius: 12px; margin: 0 auto 20px auto; text-align: center; border: 2px solid #333; width: 100%; max-width: 320px; display: block; }
-        #pulse-ui-box { width: 190px; height: 190px; border: 4px solid #00e676; border-radius: 50%; margin: 0 auto 35px auto; padding-top: 35px; display: block; }
-        #pulse-counter { font-size: 4.5rem; font-weight: bold; color: #00e676; display: block; }
-        #triage-buttons { display: none; width: 100%; max-width: 300px; margin: 0 auto; }
-        .btn-triage { width: 100%; padding: 20px; border: none; border-radius: 12px; font-size: 1.5rem; font-weight: bold; color: #fff; cursor: pointer; text-transform: uppercase; display: block; }
-    </style>
-</head>
-<body>
-
-    <div id="header-bar">
-        <div id="gps-display">GPS: НАЛАШТУВАННЯ СУПУТНИКІВ...</div>
-        <button id="settings-trigger" onclick="openSettings()">⚙️</button>
-    </div>
-
-    <div id="med-info-bar">
-        <div class="med-badge">КРОВ: <span id="out-blood">--</span></div>
-        <div class="med-badge">АЛЕРГІЯ: <span id="out-allergy">--</span></div>
-        <div class="med-badge">ПУЛЬС: <span id="out-pulse">--</span></div>
-        <div class="med-badge">ДИХАННЯ: <span id="out-breath">--</span></div>
-    </div>
-
-    <div id="active-sos-zone">
-        <button class="btn-active-sos" onclick="triggerActiveSOS()">
-            <div id="timer-countdown">5:00</div>
-            <span style="display:block; margin-top:20px;">🚨 Я ЖИВИЙ</span>
-            <span class="btn-subtext">Сирена + Ліхтарик + СМС на 2 номери</span>
-        </button>
-    </div>
-
-    <div id="bottom-zone">
-        <button class="btn-small-tactical btn-eco-beacon" onclick="startEcoBeaconMode()">
-            <span>🌑 ЕКО-МАЯК</span>
-            <span class="btn-small-subtext">Імпульс раз на 3 хв</span>
-        </button>
-        
-        <button class="btn-small-tactical btn-med-check" onclick="openPulseModal()">
-            <span>❤️ МЕД-СТАТУС</span>
-            <span class="btn-small-subtext">Заміряти пульс для ДСНС</span>
-        </button>
-    </div>
-
-    <div id="settings-screen" style="display: none;">
-        <h2 style="color:#ffd600; margin: 25px 0 20px 0; font-size: 1.5rem; text-align:center;">📋 НАЛАШТУВАННЯ МАЯКА</h2>
-        
-        <div class="input-group">
-            <label>Номер 1 (напр. ДСНС / 101):</label>
-            <input type="tel" id="inp-phone1" class="input-field" placeholder="+380...">
-        </div>
-        
-        <div class="input-group">
-            <label>Номер 2 (напр. Дружина / Брат):</label>
-            <input type="tel" id="inp-phone2" class="input-field" placeholder="+380...">
-        </div>
-        
-        <div class="input-group">
-            <label>Група крові та резус:</label>
-            <input type="text" id="inp-blood" class="input-field" placeholder="напр. 2(+)">
-        </div>
-        
-        <div class="input-group">
-            <label>Алергічні реакції:</label>
-            <input type="text" id="inp-allergy" class="input-field" placeholder="напр. Пеніцилін">
-        </div>
-        
-        <button class="btn-save" onclick="saveSettings()">ЗБЕРЕГТИ ДАНІ</button>
-        <button class="btn-save" style="background:#333; color:#fff;" onclick="closeSettings()">НАЗАД</button>
-    </div>
-
-    <div id="eco-overlay" onclick="stopEcoBeaconMode()">
-        <div class="eco-text">
-            РЕЖИМ ЕКО-МАЯКА АКТИВНИЙ<br><br>
-            Екран повністю вимкнено.<br>
-            Змінна сирена кожні 3 хв (3 сек).<br><br>
-            <span style="color:#0a0a0a; font-size: 1rem; display:block; margin-top:20px;">(Тапніть для виходу)</span>
-        </div>
-    </div>
-
-    <div id="pulse-modal">
-        <h2 id="pulse-title" style="color:#00e676; margin-bottom:20px; text-align:center;">ВИМІРЮВАННЯ ПУЛЬСУ</h2>
-        
-        <div id="pulse-instruction">
-            <p style="color: #fff; font-size: 1.3rem; font-weight: bold; margin-bottom: 15px;">👉 ЩО ТРЕБА ЗРОБИТИ:</p>
-            <p style="color: #ccc; font-size: 1.1rem; line-height: 1.5; margin-bottom: 25px;">Коли увімкнеться світло — щільно притисніть <b style="color:#00e676;">ДВА ПАЛЬЦІ або ВСЮ ДОЛОНЮ</b> до блоку камер, щоб закрити і ліхтарик, і лінзи поруч.</p>
-            <button id="btn-start-pulse" class="btn-save" style="background:#00e676; color:#000; margin-top:0;" onclick="startPulseHardware()">✅ ПАЛЕЦЬ НА МІСЦІ (ПОЧАТИ)</button>
-        </div>
-
-        <video id="v-preview" autoplay playsinline muted></video>
-        <canvas id="c-proc" style="display:none;"></canvas>
-        
-        <div id="pulse-ui-box" style="display:none;">
-            <div id="pulse-counter">15</div>
-            <div id="pulse-status-text" style="font-size:1.1rem; color:#00e676; text-align:center; padding:0 10px; font-weight:bold; display:block; margin-top:10px;">НЕ РУХАЙТЕ ПАЛЬЦЕМ...</div>
-        </div>
-
-        <div id="triage-buttons">
-            <h3 style="color:#fff; text-align:center; margin-bottom:20px;">ЯК ВАМ ДИХАЄТЬСЯ?</h3>
-            <button class="btn-triage" style="background:#d32f2f;" onclick="submitTriage('ЯДУХА')">🚨 ВАЖКО (ЯДУХА)</button>
-            <button class="btn-triage" style="background:#00c853; margin-top:12px;" onclick="submitTriage('НОРМА')">✅ НОРМАЛЬНО</button>
-        </div>
-        
-        <button id="btn-pulse-cancel" class="btn-save" style="background:#333; color:#fff; margin-top:25px;" onclick="closePulseModal()">СКАСУВАТИ</button>
-    </div>
-
-    <script src="app.js?v=10.42"></script>
 </body>
 </html>

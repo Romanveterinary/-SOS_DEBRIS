@@ -24,7 +24,6 @@ let pulseCheckInterval = null;
 let pulseTimer = null;
 
 window.onload = () => {
-    // Перевірка чи налаштовано додаток вперше
     if (!localStorage.getItem('sos_setup_done')) {
         document.getElementById('settings-screen').style.display = 'block';
     } else {
@@ -32,7 +31,6 @@ window.onload = () => {
         initSystemData();
     }
     
-    // Постійний моніторинг батареї телефона
     if (navigator.getBattery) {
         navigator.getBattery().then(batt => {
             batteryLevel = Math.round(batt.level * 100);
@@ -88,15 +86,15 @@ function loadSettings() {
 }
 
 function initSystemData() {
-    // Запуск супутникового GPS
     if ('geolocation' in navigator) {
+        // Вмикаємо максимальну точність GPS
         navigator.geolocation.watchPosition(pos => {
             currentLat = pos.coords.latitude.toFixed(5);
             currentLon = pos.coords.longitude.toFixed(5);
             document.getElementById('gps-display').innerText = `LAT: ${currentLat} | LON: ${currentLon}`;
         }, err => {
             document.getElementById('gps-display').innerText = "⚠️ GPS СИГНАЛ ЗАБЛОКОВАНО";
-        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+        }, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
     }
     initCameraTrackOnly();
 }
@@ -123,7 +121,6 @@ async function toggleHardwareTorch(state) {
     }
 }
 
-// --- СИНТЕЗАТОР РІЖУЧОГО ЗВУКУ СИРЕНИ ---
 async function initAudioEngine() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -131,7 +128,7 @@ async function initAudioEngine() {
         gain = audioCtx.createGain();
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.type = 'sawtooth'; // Різка пилка, найкраще проходить крізь бетон та землю
+        osc.type = 'sawtooth'; 
         gain.gain.value = 0;
         osc.start();
     }
@@ -145,13 +142,11 @@ function startSirenSound() {
     
     let frequencyToggle = true;
     sirenInterval = setInterval(() => {
-        // Сирена циклічно скаче між 1800 Гц та 3800 Гц (частота тривоги для собак і людей)
         osc.frequency.setTargetAtTime(frequencyToggle ? 3800 : 1800, audioCtx.currentTime, 0.08);
         frequencyToggle = !frequencyToggle;
         
         if (navigator.vibrate) navigator.vibrate(150);
         
-        // Стробоскоп ліхтариком працює тільки в активному відкритому стані
         if(!isEcoMode) {
             toggleHardwareTorch(frequencyToggle);
         }
@@ -165,7 +160,7 @@ function stopSirenSound() {
     toggleHardwareTorch(false);
 }
 
-// --- РОЗСИЛКА SMS НА 2 НОМЕРИ ---
+// --- РОЗСИЛКА SMS З ПІДСТРАХОВКОЮ НА ГАРЯЧИЙ СТАРТ GPS ---
 function sendEmergencySMS(isMedical = false) {
     let p1 = localStorage.getItem('sos_phone1');
     let p2 = localStorage.getItem('sos_phone2');
@@ -177,21 +172,28 @@ function sendEmergencySMS(isMedical = false) {
     
     let destinationNumbers = targetPool.join(',');
     
-    let now = new Date();
-    let timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
-    let mapLink = (currentLat !== "НЕВІДОМО") ? `https://maps.google.com/?q=${currentLat},${currentLon}` : "НЕМАЄ_СИГНАЛУ_GPS";
-    
-    let messageText = "";
-    if (!isMedical) {
-        messageText = `🆘 Я ПІД ЗАВАЛАМИ! Час:${timeStr} Батарея:${batteryLevel}% Карта:${mapLink}`;
-    } else {
-        messageText = `🩺 МЕД-СТАТУС! Пульс:${measuredBPM} уд/хв. Дихання:${breathStatus}. Батарея:${batteryLevel}% Карта:${mapLink}`;
-    }
-    
-    window.location.href = `sms:${destinationNumbers}?body=${encodeURIComponent(messageText)}`;
+    // ФІКС: якщо натиснули миттєво, даємо супутникам 2.5 секунди затримки перед збором тексту
+    setTimeout(() => {
+        let now = new Date();
+        let timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+        
+        // Розумне формування посилання
+        let mapLink = "⚠️_СИГНАЛ_GPS_ЗАБЛОКОВАНО_БЕТОНОМ";
+        if (currentLat !== "НЕВІДОМО" && currentLat !== "00.000") {
+            mapLink = `https://www.google.com/maps?q=${currentLat},${currentLon}`;
+        }
+        
+        let messageText = "";
+        if (!isMedical) {
+            messageText = `🆘 Я ПІД ЗАВАЛАМИ! Час:${timeStr} Батарея:${batteryLevel}% Карта:${mapLink}`;
+        } else {
+            messageText = `🩺 МЕД-СТАТУС! Пульс:${measuredBPM} уд/хв. Дихання:${breathStatus}. Батарея:${batteryLevel}% Карта:${mapLink}`;
+        }
+        
+        window.location.href = `sms:${destinationNumbers}?body=${encodeURIComponent(messageText)}`;
+    }, 2500); 
 }
 
-// АНТИ-СОН БЛОКУВАЛЬНИК
 async function lockScreenWake() {
     if ('wakeLock' in navigator) {
         try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
@@ -201,9 +203,6 @@ function releaseScreenWake() {
     if (wakeLock) { wakeLock.release().then(() => wakeLock = null); }
 }
 
-// ========================================================
-// СТУПІНЬ 1: АКТИВНИЙ SOS (КРИК НА 5 ХВИЛИН НА 3/4 ЕКРАНУ)
-// ========================================================
 async function triggerActiveSOS() {
     if(isEcoMode) stopEcoBeaconMode();
     
@@ -224,7 +223,7 @@ async function triggerActiveSOS() {
     activeSosTimeLeft = 300; 
     
     startSirenSound();
-    sendEmergencySMS(false); 
+    sendEmergencySMS(false); // Запуститься з безпечною затримкою у 2.5 сек
     
     activeSosCountdownInterval = setInterval(() => {
         activeSosTimeLeft--;
@@ -233,7 +232,6 @@ async function triggerActiveSOS() {
         timerBadge.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     }, 1000);
     
-    // Через 5 хвилин програма автоматично переходить в ЕКО-МАЯК
     activeSosTimer = setTimeout(() => {
         cleanupActiveSOS();
         startEcoBeaconMode(); 
@@ -248,9 +246,6 @@ function cleanupActiveSOS() {
     stopSirenSound();
 }
 
-// ========================================================
-// СТУПІНЬ 2: АВТОНОМНИЙ ЕКО-МАЯК (РЕДУКТОР ЖИВЛЕННЯ НА 3 ДОБИ)
-// ========================================================
 async function startEcoBeaconMode() {
     cleanupActiveSOS(); 
     
@@ -274,7 +269,6 @@ function triggerEcoPulse() {
     
     let pulseToggle = true;
     let pulseAudioInterval = setInterval(() => {
-        // Усередині 3-секундного вікна звук швидко переливається 2000-3600Гц (змінна сирена)
         osc.frequency.setTargetAtTime(pulseToggle ? 3600 : 2000, audioCtx.currentTime, 0.05);
         pulseToggle = !pulseToggle;
         if (navigator.vibrate) navigator.vibrate(100);
@@ -296,9 +290,6 @@ function stopEcoBeaconMode() {
     releaseScreenWake();
 }
 
-// ========================================================
-// СТУПІНЬ 3: МЕДИЧНИЙ ТРИАЖ (ДВОКРОКОВИЙ ПУЛЬСОМЕТР КАМЕРИ)
-// ========================================================
 async function openPulseModal() {
     cleanupActiveSOS();
     stopEcoBeaconMode();
@@ -312,7 +303,6 @@ async function openPulseModal() {
     document.getElementById('triage-buttons').style.display = 'none';
 }
 
-// Запускається ТІЛЬКИ після підтвердження, що палець на камері
 async function startPulseHardware() {
     document.getElementById('pulse-instruction').style.display = 'none';
     document.getElementById('pulse-ui-box').style.display = 'flex';
